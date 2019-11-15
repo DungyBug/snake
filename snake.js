@@ -3,6 +3,8 @@ var snake = document.getElementById("snake").getContext("2d");
 let positions = [0, 0, 1, 0];
 let expos = [Math.floor(Math.random() * 192), Math.floor(Math.random() * 108)];
 let moving = 0;
+let LastTime = new Date();
+let GameOver = false;
 
 function DrawGame() {
     snake.fillStyle = "#000000";
@@ -13,11 +15,17 @@ function DrawGame() {
 
     snake.fillStyle = "#ffffff";
     for(let i = 0; i < positions.length; i += 2) {
-        snake.fillRect(positions[i], positions[i + 1], 1, 1);
+        snake.fillRect(Math.round(positions[i]), Math.round(positions[i + 1]), 1, 1);
     }
 }
 
 function TickGame() {
+    for(let j = 0; j < positions.length - 2; j += 2) {
+        if(positions[positions.length - 2] === positions[j] & positions[positions.length - 1] === positions[j + 1]) {
+            alert("Game Over");
+            GameOver = true;
+        }
+    }
     for(let i = 0; i < positions.length - 2; i += 2) {
         positions[i] = positions[i + 2];
         positions[i + 1] = positions[i + 3];
@@ -92,7 +100,10 @@ document.addEventListener("keypress", function(e) {
     }
 })
 requestAnimationFrame(function Exec() {
-    TickGame();
-    DrawGame();
-    requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(Exec)));
+    if(new Date() - LastTime > 40 & GameOver === false) {
+        TickGame();
+        DrawGame();
+        LastTime = new Date();
+    }
+    requestAnimationFrame(Exec);
 })
