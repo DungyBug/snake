@@ -1,6 +1,8 @@
 const http = require("http");
 const WSServer = require('websocket').server;
 const fs = require("fs");
+
+let TimeStart = new Date();
 let players = {
     positions1: [1, 0, 2, 0],
     positions2: [21, 0, 22, 0],
@@ -10,7 +12,13 @@ let players = {
     move2: 0,
     expos: [Math.floor(Math.random() * 384), Math.floor(Math.random() * 216)],
     BallIsEaten: false,
-    PlayerWin: 0
+    PlayerWin: 0,
+    Laser: {
+        IsFiring: false,
+        Horizontal: true,
+        c: 10,
+        len: 3
+    }
 };
 
 function TickGame() {
@@ -23,10 +31,30 @@ function TickGame() {
         }
     }
 
-    for(let i = 0; i < players.positions2.length; i++) {
+    for(let i = 0; i < players.positions1.length; i++) {
         if(players.positions2[players.positions2.length - 2] === players.positions1[i] & players.positions2[players.positions2.length - 1] === players.positions1[i + 1]) {
             if(players.positions1.length < players.positions2.length) {
                 players.PlayerWin = 2;
+            }
+        }
+    }
+
+    if(players.Laser.IsFiring) {
+        if(players.Laser.Horizontal) {
+            if(players.positions1[players.positions1.length - 1] === players.Laser.c) {
+                players.PlayerWin = 2;
+            }
+
+            if(players.positions2[players.positions1.length - 1] === players.Laser.c) {
+                players.PlayerWin = 1;
+            }
+        } else {
+            if(players.positions1[players.positions1.length - 2] === players.Laser.c) {
+                players.PlayerWin = 2;
+            }
+
+            if(players.positions2[players.positions1.length - 2] === players.Laser.c) {
+                players.PlayerWin = 1;
             }
         }
     }
@@ -185,6 +213,39 @@ let HTTPServer = http.createServer((req, res) => {
             });
             break;
         };
+        case "/fire": {
+            fs.readFile("Fire.wav", (err, data) => {
+                if(err) {
+                    console.log(err);
+                }
+
+                res.writeHead(200, {"Content-Type": "audio/wav"});
+                res.end(Buffer.from(data).toString("base64"));
+            });
+            break;
+        };
+        case "/falling": {
+            fs.readFile("falling.wav", (err, data) => {
+                if(err) {
+                    console.log(err);
+                }
+
+                res.writeHead(200, {"Content-Type": "audio/wav"});
+                res.end(Buffer.from(data).toString("base64"));
+            });
+            break;
+        };
+        case "/bts": {
+            fs.readFile("battletoadssound.wav", (err, data) => {
+                if(err) {
+                    console.log(err);
+                }
+
+                res.writeHead(200, {"Content-Type": "audio/wav"});
+                res.end(Buffer.from(data).toString("base64"));
+            });
+            break;
+        };
     }
 }).listen(80, () => console.log("Server is started! Have fun!"));
 
@@ -202,6 +263,7 @@ WS.on('request', function(request) {
     connection.on('message', function(message) {
         if(message.utf8Data === '5') {
             connection.sendUTF(JSON.stringify(players));
+            players.Laser.IsFiring = false;
         } else {
             if(players.player1 === '') {
                 players.player1 = connection.remoteAddresses[0];
@@ -225,9 +287,16 @@ WS.on('request', function(request) {
     });
 });
 
+setTimeout(function St() {
+    players.Laser.c = Math.floor(Math.random() * 384);
+    players.Laser.Horizontal = Math.floor(Math.random() * 20) > 10 ? true : false;
+    players.Laser.IsFiring = true;
+    setTimeout(St, 6000 - (new Date() - TimeStart) / 1000);
+}, 6000 - (new Date() - TimeStart) / 1000);
+
 setTimeout(function Exec() {
     if(players.PlayerWin === 0) {
         TickGame();
-        setTimeout(() => Exec(), 40);
+        setTimeout(() => Exec(), 60 - (new Date() - TimeStart) / 10000);
     }
 });
