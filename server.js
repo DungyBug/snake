@@ -8,10 +8,29 @@ let players = {
     player2: '',
     move1: 0,
     move2: 0,
-    expos: [Math.floor(Math.random() * 384), Math.floor(Math.random() * 216)]
+    expos: [Math.floor(Math.random() * 384), Math.floor(Math.random() * 216)],
+    BallIsEaten: false,
+    PlayerWin: 0
 };
 
 function TickGame() {
+    players.BallIsEaten = false;
+    for(let i = 0; i < players.positions2.length; i++) {
+        if(players.positions1[players.positions1.length - 2] === players.positions2[i] & players.positions1[players.positions1.length - 1] === players.positions2[i + 1]) {
+            if(players.positions1.length > players.positions2.length) {
+                players.PlayerWin = 1;
+            }
+        }
+    }
+
+    for(let i = 0; i < players.positions2.length; i++) {
+        if(players.positions2[players.positions2.length - 2] === players.positions1[i] & players.positions2[players.positions2.length - 1] === players.positions1[i + 1]) {
+            if(players.positions1.length < players.positions2.length) {
+                players.PlayerWin = 2;
+            }
+        }
+    }
+
     for(let i = 0; i < players.positions1.length - 2; i += 2) {
         players.positions1[i] = players.positions1[i + 2];
         players.positions1[i + 1] = players.positions1[i + 3];
@@ -19,6 +38,7 @@ function TickGame() {
 
     for(let i = 0; i < players.positions1.length; i += 2) {
         if(players.expos[0] === players.positions1[i] & players.expos[1] === players.positions1[i + 1]) {
+            players.BallIsEaten = true;
             for(let i = 0; i < players.positions1.length - 2; i += 2) {
                 players.positions1[i] = players.positions1[i + 2];
                 players.positions1[i + 1] = players.positions1[i + 3];
@@ -70,6 +90,7 @@ function TickGame() {
 
     for(let i = 0; i < players.positions2.length; i += 2) {
         if(players.expos[0] === players.positions2[i] & players.expos[1] === players.positions2[i + 1]) {
+            players.BallIsEaten = true;
             for(let i = 0; i < players.positions2.length - 2; i += 2) {
                 players.positions2[i] = players.positions2[i + 2];
                 players.positions2[i + 1] = players.positions2[i + 3];
@@ -142,35 +163,28 @@ let HTTPServer = http.createServer((req, res) => {
             });
             break;
         };
-        case "/data": {
-            let body = "";
-            req.on("data", function(data) {
-                body += data;
-            });
-            req.on("end", function() {
-                body = JSON.parse(body);
-                if(players.player1 === '') {
-                    players.player1 = req.connection.remoteAddress;
-                }
-                if(players.player2 === '' & players.player1 !== req.connection.remoteAddress) {
-                    players.player2 = req.connection.remoteAddress;
+        case "/sound": {
+            fs.readFile("sound0.wav", (err, data) => {
+                if(err) {
+                    console.log(err);
                 }
 
-                if(req.connection.remoteAddress === players.player1) {
-                    players.move1 = body.move;
-                }
-                if(req.connection.remoteAddress === players.player2) {
-                    players.move2 = body.move;
-                }
-                res.end("ok");
+                res.writeHead(200, {"Content-Type": "audio/wav"});
+                res.end(Buffer.from(data).toString("base64"));
             });
             break;
         };
-        // case "/obb": {
-        //     res.writeHead(200, {"Content-Type": "text/plain"});
-        //     res.end(JSON.stringify(players));
-        //     break;
-        // };
+        case "/loose": {
+            fs.readFile("loose.wav", (err, data) => {
+                if(err) {
+                    console.log(err);
+                }
+
+                res.writeHead(200, {"Content-Type": "audio/wav"});
+                res.end(Buffer.from(data).toString("base64"));
+            });
+            break;
+        };
     }
 }).listen(80, () => console.log("Server is started! Have fun!"));
 
@@ -186,7 +200,23 @@ WS.on('request', function(request) {
     // This is the most important callback for us, we'll handle
     // all messages from users here.
     connection.on('message', function(message) {
-        connection.sendUTF(JSON.stringify(players));
+        if(message.utf8Data === '5') {
+            connection.sendUTF(JSON.stringify(players));
+        } else {
+            if(players.player1 === '') {
+                players.player1 = connection.remoteAddresses[0];
+            }
+            if(players.player2 === '' & players.player1 !== connection.remoteAddresses[0]) {
+                players.player2 = connection.remoteAddresses[0];
+            }
+
+            if(connection.remoteAddresses[0] === players.player1) {
+                players.move1 = (message.utf8Data + '').charCodeAt() - 48;
+            }
+            if(connection.remoteAddresses[0] === players.player2) {
+                players.move2 = (message.utf8Data + '').charCodeAt() - 48;
+            }
+        }
         // process WebSocket message
     });
   
@@ -196,6 +226,8 @@ WS.on('request', function(request) {
 });
 
 setTimeout(function Exec() {
-    TickGame();
-    setTimeout(() => Exec(), 40);
+    if(players.PlayerWin === 0) {
+        TickGame();
+        setTimeout(() => Exec(), 40);
+    }
 });

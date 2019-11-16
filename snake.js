@@ -10,89 +10,61 @@ let positions2 = [0, 0, 20, 0];
 let expos = [0, 0];
 let moving = 0;
 let connection = new WebSocket('ws://192.168.0.21:80');
+let Sound;
+let Loose;
+let Win = 0;
+
+fetch('http://192.168.0.21:80/sound')
+    .then(response => response.text())
+    .then(data => {
+        Sound = 'data:audio/wav;base64,' + data;
+    });
+    
+fetch('http://192.168.0.21:80/loose')
+    .then(response => response.text())
+    .then(data => {
+        Loose = 'data:audio/wav;base64,' + data;
+    });
+
 connection.onmessage = function(message) {
     let res = JSON.parse(message.data);
+    if(res.BallIsEaten === true) {
+        new Audio(Sound).play();
+    }
+    if(res.PlayerWin !== 0 & Win === 0 & Win !== 3) {
+        new Audio(Loose).play();
+        Win = res.PlayerWin;
+    }
     positions = res.positions1;
     positions2 = res.positions2;
     expos = res.expos;
 }
 
 function DrawGame() {
-    snake.fillStyle = "#000000";
+    snake.fillStyle = "#00000040";
     snake.fillRect(0, 0, window.outerWidth, window.outerHeight);
 
     snake.fillStyle = "#ffffff";
     snake.fillRect(expos[0] * dw, expos[1] * dh, dw, dh);
 
-    snake.fillStyle = "#ffffff";
+    snake.fillStyle = "#ffaaaa";
     for(let i = 0; i < positions.length; i += 2) {
         snake.fillRect(positions[i] * dw, positions[i + 1] * dh, dw, dh);
     }
+    snake.fillStyle = "#aaaaff";
     for(let i = 0; i < positions2.length; i += 2) {
         snake.fillRect(positions2[i] * dw, positions2[i + 1] * dh, dw, dh);
     }
+
+    if(Win !== 0 & Win !== 3) {
+        alert("Player " + Win + " Wins!");
+        Win = 3;
+    }
 }
-
-// function TickGame() {
-//     for(let j = 0; j < positions.length - 2; j += 2) {
-//         if(positions[positions.length - 2] === positions[j] & positions[positions.length - 1] === positions[j + 1]) {
-//             GameOver = true;
-//         }
-//     }
-//     for(let i = 0; i < positions.length - 2; i += 2) {
-//         positions[i] = positions[i + 2];
-//         positions[i + 1] = positions[i + 3];
-//     }
-
-//     for(let i = 0; i < positions.length; i += 2) {
-//         if(expos[0] === positions[i] & expos[1] === positions[i + 1]) {
-//             for(let i = 0; i < positions.length - 2; i += 2) {
-//                 positions[i] = positions[i + 2];
-//                 positions[i + 1] = positions[i + 3];
-//             }
-//             positions[positions.length] = expos[0];
-//             positions[positions.length] = expos[1];
-//             expos = [Math.floor(Math.random() * 192), Math.floor(Math.random() * 108)];
-//             while(expos[0] === positions[i] & expos[1] === positions[i + 1]) {
-//                 expos = [Math.floor(Math.random() * 192), Math.floor(Math.random() * 108)]
-//             }
-
-//             break;
-//         }
-//     }
-
-//     switch(moving) {
-//         case 0: {
-//             positions[positions.length - 2]++;
-//             positions[positions.length - 2] %= 192;
-//             break;
-//         };
-//         case 1: {
-//             positions[positions.length - 2]--;
-//             if(positions[positions.length - 2] < 0) {
-//                 positions[positions.length - 2] = 191;
-//             }
-//             positions[positions.length - 2] %= 192;
-//             break;
-//         };
-//         case 2: {
-//             positions[positions.length - 1]++;
-//             positions[positions.length - 1] %= 108;
-//             break;
-//         };
-//         case 3: {
-//             positions[positions.length - 1]--;
-//             if(positions[positions.length - 1] < 0) {
-//                 positions[positions.length - 1] = 107;
-//             }
-//             positions[positions.length - 1] %= 108;
-//             break;
-//         };
-//     }
-// }
 
 
 document.addEventListener("keypress", function(e) {
+    let LastMoving = moving;
     switch(e.key) {
         case 'a': {
             moving = moving === 0 ? 0 : 1;
@@ -111,31 +83,13 @@ document.addEventListener("keypress", function(e) {
             break;
         };
     }
-    fetch("http://192.168.0.21:80/data", {
-        method: 'POST', // *GET, POST, PUT, DELETE, etc.
-        mode: 'cors', // no-cors, cors, *same-origin
-        cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
-        credentials: 'same-origin', // include, *same-origin, omit
-        headers: {
-            'Content-Type': 'application/json',
-            // 'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        redirect: 'follow', // manual, *follow, error
-        referrer: 'no-referrer', // no-referrer, *client
-        body: JSON.stringify({move: moving}), // тип данных в body должен соответвовать значению заголовка "Content-Type"
-    })
+    if(LastMoving !== moving) {
+        connection.send(moving);
+    }
 });
 
 setTimeout(() => requestAnimationFrame(function Exec() {
-    // fetch('http://192.168.0.21:80/obb')
-    //     .then(response => response.json())
-    //     .then(data => {
-    //         resp = data;
-    //         expos = data.expos;
-    //         positions = data.positions1;
-    //         positions2 = data.positions2;
-    //     })
     DrawGame();
-    connection.send(0);
+    connection.send(5);
     requestAnimationFrame(Exec);
 }), 100);
